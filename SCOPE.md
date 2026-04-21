@@ -13,16 +13,26 @@
 - Objective: Maximize output while keeping token usage and API costs low.
 
 **ACP Spawn Contract (Mandatory)**
-- When invoking `sessions_spawn` for Cursor work, always include:
+- `sessions_spawn` for any external-harness work must always include:
   - `runtime: "acp"`
-  - `agentId: "main"` (unless user explicitly requests a different agent)
-  - `cwd` pointing to the target project directory
-- If ACP returns `target_agent_required`, immediately retry with explicit `agentId: "main"` and report the retry result.
+  - `agentId`: the **acpx harness name**, chosen by task type (not an OpenClaw agent id):
+    - Cursor work → `"cursor"`
+    - Codex work → `"codex"`
+    - Claude Code work → `"claude"`
+    - Gemini CLI work → `"gemini"`
+    - OpenCode work → `"opencode"`
+    - Copilot work → `"copilot"`
+    - OpenClaw-on-OpenClaw work → `"openclaw"`
+  - `cwd` pointing to the target project's absolute path
+  - `task` with a clear, self-contained implementation instruction
+- Never send `agentId: "main"`. `main` is OpenClaw's internal primary-agent id and acpx does not recognise it as a harness — it produces `Failed to spawn agent command: main`.
+- If ACP returns `target_agent_required`, retry **once** with the harness name for the task type (e.g. `"cursor"` for Cursor work), not `"main"`, and report the retry result.
+- If ACP returns an error containing `Authentication required`, `not authenticated`, `login required`, or `ACP runtime backend is not configured`: do **not** retry. Stop, surface the exact error to Dominic, and reference the "Cursor ACP runbook" section in `TOOLS.md`.
 - For every ACP run, provide a brief evidence block in the reply:
   - `ACP_RUNTIME`
   - `ACP_AGENT_ID`
   - `ACP_RESULT` (`spawned|failed`)
-  - `ACP_ERROR` (only when failed)
+  - `ACP_ERROR` (only when failed; include the full error text)
 
 **Daily Cadence**
 - Up to 3 substantive work updates/pushes per day.
@@ -53,5 +63,5 @@
 
 ---
 
-*Last updated: 2026-04-19*
+*Last updated: 2026-04-21*
 *This file is living. We will revise it as the system evolves.*
