@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+
+usage() {
+  cat <<'EOF' >&2
+Usage:
+  eve-deploy-gha-safe --approved-by-operator --workflow <file-or-id> [--ref <branch>] [--dry-run]
+
+Notes:
+  - Must run inside an approved repo from mobile-repo-deploy-registry.json.
+  - Explicit --approved-by-operator is required for every deploy action.
+  - Requires EVE_GHA_TOKEN (preferred) or GH_TOKEN/GITHUB_TOKEN with workflow dispatch permissions.
+EOF
+  exit 2
+}
+
+approved="false"
+dry_run="false"
+workflow=""
+ref=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --approved-by-operator) approved="true"; shift ;;
+    --dry-run) dry_run="true"; shift ;;
+    --workflow) workflow="${2:-}"; shift 2 ;;
+    --ref) ref="${2:-}"; shift 2 ;;
+    -h|--help) usage ;;
+    *)
+      echo "Denied: unrecognized argument '$1'." >&2
+      usage
+      ;;
+  esac
+done
+
+if [[ "$approved" != "true" ]]; then
+  echo "Denied: explicit operator approval required (--approved-by-operator)." >&2
+  exit 3
+fi
+if [[ -z "$workflow" ]]; then
+  echo "Denied: --workflow is required." >&2
+  exit 3
+fi
+if [[ ! -f "$REGISTRY_PATH" ]]; then
+  echo "Denied: registry not found at '$REGISTRY_PATH'." >&2
+  exit 3
+fi
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$repo_root" ]]; then
+  echo "Denied: must run inside a git repo." >&2
+  exit 3
+fi
+
+registry_match_json="$(python3 - "$REGISTRY_PATH" "$repo_root" <<'PY'
+import json
+import os
+import sys
+
+registry_path = sys.argv[1]
+repo_root = os.path.realpath(sys.argv[2])
+
+with open(registry_path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+for repo in data.get("repos", []):
+    if os.path.realpath(repo.get("localPath", "")) == repo_root:
+        if "github-actions" in repo.get("deploySurfaces", []):
+            print(json.dumps(repo))
+            sys.exit(0)
+        break
+sys.exit(1)
+PY
+)"
+
+if [[ -z "$registry_match_json" ]]; then
+  echo "Denied: repo is not approved for GitHub Actions deploys." >&2
+  exit 3
+fi
+
+repo_slug="$(python3 - <<'PY' "$registry_match_json"
+import json,sys
+r=json.loads(sys.argv[1])
+print(((r.get("githubActions") or {}).get("repository")) or "")
+PY
+)"
+if [[ -z "$repo_slug" ]]; then
+  echo "Denied: githubActions.repository is not configured for this repo in registry." >&2
+  exit 3
+fi
+
+if [[ -z "$ref" ]]; then
+  ref="$(git rev-parse --abbrev-ref HEAD)"
+fi
+
+token=""
+token_source=""
+if [[ -n "${EVE_GHA_TOKEN:-}" ]]; then
+  token="${EVE_GHA_TOKEN}"
+  token_source="EVE_GHA_TOKEN"
+elif [[ -n "${GH_TOKEN:-}" ]]; then
+  token="${GH_TOKEN}"
+  token_source="GH_TOKEN"
+elif [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  token="${GITHUB_TOKEN}"
+  token_source="GITHUB_TOKEN"
+fi
+if [[ -z "$token" && "$dry_run" != "true" ]]; then
+  echo "Denied: EVE_GHA_TOKEN, GH_TOKEN, or GITHUB_TOKEN must be set." >&2
+  exit 3
+fi
+
+endpoint="https://api.github.com/repos/${repo_slug}/actions/workflows/${workflow}/dispatches"
+payload="{\"ref\":\"${ref}\"}"
+
+if [[ "$dry_run" == "true" ]]; then
+  echo "DRY_RUN: POST ${endpoint} payload=${payload} tokenSource=${token_source:-none}"
+  exit 0
+fi
+
+workflow_lookup_endpoint="https://api.github.com/repos/${repo_slug}/actions/workflows/${workflow}"
+workflow_lookup_code="$(curl -sS -o /tmp/eve-gha-workflow.out -w "%{http_code}" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer ${token}" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "$workflow_lookup_endpoint")"
+
+if [[ "$workflow_lookup_code" == "404" ]]; then
+  echo "Denied: workflow '${workflow}' not found in ${repo_slug} default branch."
+  echo "Tip: ensure --workflow matches the filename in .github/workflows (e.g., install-smoke.yml)."
+  exit 3
+fi
+
+if [[ "$workflow_lookup_code" != "200" ]]; then
+  echo "Denied: unable to read workflow metadata (${workflow_lookup_code}) using ${token_source}."
+  cat /tmp/eve-gha-workflow.out
+  exit 3
+fi
+
+http_code="$(curl -sS -o /tmp/eve-gha-dispatch.out -w "%{http_code}" \
+  -X POST \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer ${token}" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "$endpoint" \
+  -d "$payload")"
+
+if [[ "$http_code" != "204" ]]; then
+  echo "Dispatch failed (${http_code}) using ${token_source}:"
+  cat /tmp/eve-gha-dispatch.out
+  if [[ "$http_code" == "403" ]]; then
+    echo
+    echo "Checklist:"
+    echo "  - Fine-grained PAT must include repo '${repo_slug}'."
+    echo "  - Repository permissions must include Actions: Read and write."
+    echo "  - Token owner must match '${repo_slug%%/*}' and be SSO-authorized if org policies require it."
+    echo "  - Prefer exporting a dedicated deploy token as EVE_GHA_TOKEN."
+  fi
+  exit 3
+fi
+
+echo "Workflow dispatch accepted (204) via ${token_source}."

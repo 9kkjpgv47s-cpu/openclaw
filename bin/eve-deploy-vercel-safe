@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+
+usage() {
+  cat <<'EOF' >&2
+Usage:
+  eve-deploy-vercel-safe --approved-by-operator [--dry-run] [--prod]
+
+Notes:
+  - Must run inside an approved repo from mobile-repo-deploy-registry.json.
+  - Explicit --approved-by-operator is required for every deploy action.
+EOF
+  exit 2
+}
+
+approved="false"
+dry_run="false"
+prod_flag="false"
+for arg in "$@"; do
+  case "$arg" in
+    --approved-by-operator) approved="true" ;;
+    --dry-run) dry_run="true" ;;
+    --prod) prod_flag="true" ;;
+    -h|--help) usage ;;
+    *)
+      echo "Denied: unrecognized argument '$arg'." >&2
+      usage
+      ;;
+  esac
+done
+
+if [[ "$approved" != "true" ]]; then
+  echo "Denied: explicit operator approval required (--approved-by-operator)." >&2
+  exit 3
+fi
+
+if [[ ! -f "$REGISTRY_PATH" ]]; then
+  echo "Denied: registry not found at '$REGISTRY_PATH'." >&2
+  exit 3
+fi
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$repo_root" ]]; then
+  echo "Denied: must run inside a git repo." >&2
+  exit 3
+fi
+
+registry_match_json="$(python3 - "$REGISTRY_PATH" "$repo_root" <<'PY'
+import json
+import os
+import sys
+
+registry_path = sys.argv[1]
+repo_root = os.path.realpath(sys.argv[2])
+
+with open(registry_path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+for repo in data.get("repos", []):
+    if os.path.realpath(repo.get("localPath", "")) == repo_root:
+        if "vercel" in repo.get("deploySurfaces", []):
+            print(json.dumps(repo))
+            sys.exit(0)
+        break
+sys.exit(1)
+PY
+)"
+
+if [[ -z "$registry_match_json" ]]; then
+  echo "Denied: repo is not approved for Vercel deploys." >&2
+  exit 3
+fi
+
+if ! command -v vercel >/dev/null 2>&1; then
+  echo "Denied: 'vercel' CLI not found." >&2
+  exit 3
+fi
+
+if [[ "$dry_run" == "true" ]]; then
+  if [[ "$prod_flag" == "true" ]]; then
+    echo "DRY_RUN: vercel --prod"
+  else
+    echo "DRY_RUN: vercel"
+  fi
+  exit 0
+fi
+
+if [[ "$prod_flag" == "true" ]]; then
+  exec vercel --prod
+else
+  exec vercel
+fi

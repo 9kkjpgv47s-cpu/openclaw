@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+GIT_BIN="/usr/bin/git"
+REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: eve-git-safe <git-subcommand> [args...]" >&2
+  exit 2
+fi
+
+subcommand="$1"
+shift
+
+case "$subcommand" in
+  status|diff|log|add|commit|push)
+    ;;
+  remote)
+    if [[ $# -ne 1 || "$1" != "-v" ]]; then
+      echo "Denied: only 'remote -v' is allowed." >&2
+      exit 3
+    fi
+    ;;
+  *)
+    echo "Denied: subcommand '$subcommand' is not allowed." >&2
+    exit 3
+    ;;
+esac
+
+# Deny force/destructive flags even on otherwise allowed subcommands.
+for arg in "$@"; do
+  case "$arg" in
+    --force|--force-with-lease|-f|--hard|--amend|-i|--interactive)
+      echo "Denied: destructive/interactive git option '$arg' is not allowed." >&2
+      exit 3
+      ;;
+  esac
+done
+
+repo_root="$($GIT_BIN rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$repo_root" ]]; then
+  echo "Denied: current directory is not inside a git repository." >&2
+  exit 3
+fi
+
+if [[ ! -f "$REGISTRY_PATH" ]]; then
+  echo "Denied: registry not found at '$REGISTRY_PATH'." >&2
+  exit 3
+fi
+
+registry_match_json="$(python3 - "$REGISTRY_PATH" "$repo_root" <<'PY'
+import json
+import os
+import sys
+
+registry_path = sys.argv[1]
+repo_root = os.path.realpath(sys.argv[2])
+
+with open(registry_path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+for repo in data.get("repos", []):
+    local_path = os.path.realpath(repo.get("localPath", ""))
+    if local_path and local_path == repo_root:
+        print(json.dumps(repo))
+        sys.exit(0)
+
+sys.exit(1)
+PY
+)"
+
+if [[ -z "$registry_match_json" ]]; then
+  echo "Denied: repository '$repo_root' is outside approved registry scope." >&2
+  exit 3
+fi
+
+expected_remote="$(python3 - <<'PY' "$registry_match_json"
+import json
+import sys
+r = json.loads(sys.argv[1])
+print(r.get("remoteUrl",""))
+PY
+)"
+allowed_push_branch_regex="$(python3 - <<'PY' "$registry_match_json"
+import json
+import sys
+r = json.loads(sys.argv[1])
+print(r.get("allowedPushBranchRegex",""))
+PY
+)"
+
+if [[ -n "$expected_remote" ]]; then
+  current_remote="$($GIT_BIN remote get-url origin 2>/dev/null || true)"
+  if [[ "$current_remote" != "$expected_remote" ]]; then
+    echo "Denied: origin remote '$current_remote' does not match expected '$expected_remote'." >&2
+    exit 3
+  fi
+fi
+
+if [[ "$subcommand" == "push" ]]; then
+  # Enforce push destination discipline: explicit remote must be origin.
+  explicit_remote=""
+  for arg in "$@"; do
+    case "$arg" in
+      --*) ;;
+      *) explicit_remote="$arg"; break ;;
+    esac
+  done
+  if [[ -n "$explicit_remote" && "$explicit_remote" != "origin" ]]; then
+    echo "Denied: explicit push remote '$explicit_remote' is not allowed; use origin." >&2
+    exit 3
+  fi
+
+  current_branch="$($GIT_BIN rev-parse --abbrev-ref HEAD)"
+  if [[ -z "$allowed_push_branch_regex" ]]; then
+    echo "Denied: registry is missing allowedPushBranchRegex for '$repo_root'." >&2
+    exit 3
+  fi
+  if [[ ! "$current_branch" =~ $allowed_push_branch_regex ]]; then
+    echo "Denied: pushes are restricted to branches matching $allowed_push_branch_regex (current: $current_branch)." >&2
+    exit 3
+  fi
+fi
+
+exec "$GIT_BIN" "$subcommand" "$@"
