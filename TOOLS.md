@@ -160,3 +160,25 @@ If any of the error classes in the fallback rules appears, step back through thi
 - **`Authentication required`** — `CURSOR_API_KEY` isn't set in the environment OpenClaw spawns acpx from. Having it in your interactive shell is not enough — OpenClaw's service env must see it.
 - **`ACP runtime backend is not configured`** — acpx plugin isn't installed or isn't enabled. Run step 1.
 - **Using Grok API key for Cursor auth** — won't work. Grok drives Eve's reasoning; Cursor needs its own key. Keep them separate in your env.
+
+## Telegram limit elimination — integrated smoke (status-only)
+
+After enabling Telegram outbound hardening (per-chat queue, `retry_after`-aware backoff, and related `channels.telegram.*` tuning in OpenClaw), verify the stack with **read-only channel status only**. Do **not** use `openclaw message send`, poll creation, or other traffic that consumes send quota during this smoke.
+
+On the host where the gateway runs:
+
+```bash
+openclaw channels status
+```
+
+Optional: probe explicit numeric group IDs when you need membership visibility (wildcard `*` in `groups` cannot be membership-probed):
+
+```bash
+openclaw channels status --probe
+```
+
+Pass `--help` on your installed `openclaw` for supported probe flags.
+
+Pass criteria: Telegram appears as configured/enabled, no unexpected auth or connectivity errors in the status output, and `openclaw logs --follow` shows stable polling (no repeated `getUpdates` 409 from a duplicate poller, no tight loop of outbound 429 retries right after startup).
+
+Out of scope for this smoke: functional sends, cron delivery, or load tests — those belong in a separate send-path validation after status checks pass.
