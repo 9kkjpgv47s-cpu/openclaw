@@ -72,6 +72,7 @@ Never use `"main"` — that's OpenClaw's internal primary-agent id, not an acpx 
 ### Fallback rules
 
 - `target_agent_required` → retry once with the correct harness name for the task type. Report the retry result.
+- `cursor-only` policy/task → never fallback to another harness if Cursor ACP fails. Do not auto-switch to `codex`, `claude`, `gemini`, `opencode`, `copilot`, or `openclaw`; fail closed and surface the original ACP error.
 - `Failed to spawn agent command: <name>` where `<name>` is not in the harness map above → the caller sent the wrong `agentId`. Re-send with the correct harness name.
 - `ACP runtime backend is not configured` or `Install and enable the acpx runtime plugin` → see the Cursor ACP runbook below. Do **not** retry; surface to Dominic.
 - `Authentication required`, `not authenticated`, `login required` → per-harness auth issue. For Cursor, see the runbook below. For other harnesses, auth is harness-specific (e.g. `gemini auth login`, `claude /login`, `opencode auth`). Do **not** retry silently; surface to Dominic with the full error text.
@@ -151,6 +152,17 @@ ACP_RUNTIME: acp
 ACP_AGENT_ID: cursor
 ACP_RESULT: spawned
 ```
+
+For a `cursor-only` task where Cursor ACP fails, expected proof output is:
+
+```
+ACP_RUNTIME: acp
+ACP_AGENT_ID: cursor
+ACP_RESULT: failed
+ACP_ERROR: <exact cursor ACP error text>
+```
+
+and there must be no second ACP spawn against a non-Cursor harness.
 
 If any of the error classes in the fallback rules appears, step back through this runbook.
 

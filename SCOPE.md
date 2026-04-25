@@ -27,6 +27,7 @@
   - `task` with a clear, self-contained implementation instruction
 - Never send `agentId: "main"`. `main` is OpenClaw's internal primary-agent id and acpx does not recognise it as a harness — it produces `Failed to spawn agent command: main`.
 - If ACP returns `target_agent_required`, retry **once** with the harness name for the task type (e.g. `"cursor"` for Cursor work), not `"main"`, and report the retry result.
+- **Cursor-only guardrail:** when the task/policy is `cursor-only`, do not fall back to any non-Cursor harness (`codex`, `claude`, `gemini`, `opencode`, `copilot`, `openclaw`) after an ACP failure. Fail closed, surface the exact ACP error, and mark `ACP_RESULT: failed`.
 - If ACP returns an error containing `Authentication required`, `not authenticated`, `login required`, or `ACP runtime backend is not configured`: do **not** retry. Stop, surface the exact error to Dominic, and reference the "Cursor ACP runbook" section in `TOOLS.md`.
 - For every ACP run, provide a brief evidence block in the reply:
   - `ACP_RUNTIME`
