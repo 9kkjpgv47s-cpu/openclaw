@@ -1,0 +1,21 @@
+name: Security compliance canary
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "cursor/**"
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run security compliance canary
+        run: bash bin/security-compliance-canary-check

@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# Security / compliance canary: static checks on repo guardrails (no network).
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$root" ]]; then
+  echo "security-compliance-canary-check: must run inside a git repository." >&2
+  exit 1
+fi
+cd "$root"
+
+failures=0
+fail() {
+  echo "CANARY_FAIL: $*" >&2
+  failures=$((failures + 1))
+}
+
+# --- eve-git-safe ---
+git_safe="$root/bin/eve-git-safe"
+if [[ ! -f "$git_safe" ]]; then
+  fail "missing bin/eve-git-safe"
+else
+  if ! head -n 5 "$git_safe" | grep -q "set -euo pipefail"; then
+    fail "bin/eve-git-safe must use set -euo pipefail near the top"
+  fi
+  if ! grep -q "REGISTRY_PATH" "$git_safe"; then
+    fail "bin/eve-git-safe must gate on deploy registry (REGISTRY_PATH)"
+  fi
+  if ! grep -qE "(--force|--force-with-lease|-f|--hard)" "$git_safe"; then
+    fail "bin/eve-git-safe must explicitly deny destructive git flags"
+  fi
+  if ! grep -q "allowedPushBranchRegex" "$git_safe"; then
+    fail "bin/eve-git-safe must enforce allowedPushBranchRegex for push"
+  fi
+fi
+
+# --- eve-deploy-gha-safe ---
+gha_safe="$root/bin/eve-deploy-gha-safe"
+if [[ ! -f "$gha_safe" ]]; then
+  fail "missing bin/eve-deploy-gha-safe"
+else
+  if ! head -n 5 "$gha_safe" | grep -q "set -euo pipefail"; then
+    fail "bin/eve-deploy-gha-safe must use set -euo pipefail near the top"
+  fi
+  if ! grep -q "approved-by-operator" "$gha_safe"; then
+    fail "bin/eve-deploy-gha-safe must require --approved-by-operator"
+  fi
+  if ! grep -q "REGISTRY_PATH" "$gha_safe"; then
+    fail "bin/eve-deploy-gha-safe must gate on REGISTRY_PATH"
+  fi
+  if ! grep -q "github-actions" "$gha_safe"; then
+    fail "bin/eve-deploy-gha-safe must check deploySurfaces for github-actions"
+  fi
+fi
+
+# --- eve-deploy-vercel-safe ---
+vercel_safe="$root/bin/eve-deploy-vercel-safe"
+if [[ ! -f "$vercel_safe" ]]; then
+  fail "missing bin/eve-deploy-vercel-safe"
+else
+  if ! head -n 5 "$vercel_safe" | grep -q "set -euo pipefail"; then
+    fail "bin/eve-deploy-vercel-safe must use set -euo pipefail near the top"
+  fi
+  if ! grep -q "approved-by-operator" "$vercel_safe"; then
+    fail "bin/eve-deploy-vercel-safe must require --approved-by-operator"
+  fi
+  if ! grep -q "REGISTRY_PATH" "$vercel_safe"; then
+    fail "bin/eve-deploy-vercel-safe must gate on REGISTRY_PATH"
+  fi
+  if ! grep -q "vercel" "$vercel_safe"; then
+    fail "bin/eve-deploy-vercel-safe must reference vercel deploy surface or CLI"
+  fi
+fi
+
+# --- shell syntax ---
+for f in "$git_safe" "$gha_safe" "$vercel_safe"; do
+  if [[ -f "$f" ]] && ! bash -n "$f"; then
+    fail "bash -n failed for $f"
+  fi
+done
+
+if [[ "$failures" -gt 0 ]]; then
+  echo "security-compliance-canary-check: ${failures} check(s) failed." >&2
+  exit 1
+fi
+
+echo "security-compliance-canary-check: all checks passed."
