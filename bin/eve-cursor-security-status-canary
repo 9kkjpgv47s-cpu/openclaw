@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Run `cursor-agent status` as a security/auth canary. On failure, wait briefly
+# and retry once (covers transient CLI/API blips). Exits with the last attempt's status.
+set -euo pipefail
+
+if ! command -v cursor-agent >/dev/null 2>&1; then
+  echo "eve-cursor-security-status-canary: cursor-agent not on PATH; skip." >&2
+  exit 0
+fi
+
+run_status() {
+  cursor-agent status
+}
+
+if run_status; then
+  exit 0
+fi
+
+echo "eve-cursor-security-status-canary: first status check failed; retrying once after 3s..." >&2
+sleep 3
+exec cursor-agent status
