@@ -129,6 +129,8 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+**Security status canary (retry once on flakes):** treat `cursor-agent status` as the minimal headless auth check. If it fails with something that looks **transient** (timeouts, TLS or connection errors, `ECONNRESET`, `temporarily unavailable`, rate-limit style messages), wait **2–4 seconds** and run it **once more**; use the second outcome as authoritative. **Do not** use this retry path when the output clearly indicates **authentication** problems (`Authentication required`, `not authenticated`, `login required`, `unauthorized`, invalid API key) — those need env/key fixes from the runbook, not a blind retry.
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
