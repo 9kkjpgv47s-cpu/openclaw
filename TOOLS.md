@@ -129,6 +129,11 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+**Security status canary (with retry)** — Treat `cursor-agent status` as the lightweight canary for whether the Cursor CLI sees valid credentials in this environment (before heavier `/acp spawn` checks).
+
+- **Transient failures** (timeouts, TLS or connection resets, temporary `ECONNREFUSED`, HTTP 429 / rate limit): retry **once** after a short backoff (~5s), then report both the first error and the outcome of the retry.
+- **Do not retry** for deterministic outcomes: missing `cursor-agent`, `Authentication required`, invalid or empty `CURSOR_API_KEY`, or explicit config/auth errors — fix the runbook steps above and run the canary again manually.
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
