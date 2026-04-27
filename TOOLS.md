@@ -129,6 +129,13 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+**Canary with retries (CI / flaky network):** `cursor-agent status` can succeed while later calls still hit TLS or proxy issues (for example on self-hosted runners). Use the bundled script so transient failures retry with the same backoff as other Eve deploy tooling (4s, 8s, 16s, 32s), and **do not** retry obvious auth errors (invalid key, not authenticated):
+
+```bash
+./bin/eve-cursor-security-status-canary
+./bin/eve-cursor-security-status-canary --max-attempts 5
+```
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
