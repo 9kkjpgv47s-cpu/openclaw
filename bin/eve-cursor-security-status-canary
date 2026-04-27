@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Run `cursor-agent status` as a connectivity/auth canary, with retries for
+# transient failures (TLS/proxy blips, rate limits, short outages).
+set -euo pipefail
+
+usage() {
+  cat <<'EOF' >&2
+Usage:
+  eve-cursor-security-status-canary [--max-attempts N]
+
+Runs: cursor-agent status
+  - Retries on non-zero exit when the output does not look like a permanent
+    auth/configuration error.
+  - Backoff between attempts: 4s, 8s, 16s, 32s (then 32s for any further waits).
+
+Requires: cursor-agent on PATH (same as OpenClaw/acpx host setup).
+
+Exit codes:
+  0  status succeeded
+  2  cursor-agent not found
+  1  permanent failure or exhausted retries
+EOF
+  exit 2
+}
+
+max_attempts=5
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --max-attempts)
+      max_attempts="${2:-}"
+      if [[ -z "$max_attempts" || ! "$max_attempts" =~ ^[1-9][0-9]*$ ]]; then
+        echo "Denied: --max-attempts requires a positive integer." >&2
+        usage
+      fi
+      shift 2
+      ;;
+    -h|--help) usage ;;
+    *)
+      echo "Denied: unrecognized argument '$1'." >&2
+      usage
+      ;;
+  esac
+done
+
+if ! command -v cursor-agent >/dev/null 2>&1; then
+  echo "Denied: cursor-agent not on PATH. Install Cursor CLI and retry." >&2
+  exit 2
+fi
+
+tmp="$(mktemp)"
+cleanup() { rm -f "$tmp"; }
+trap cleanup EXIT
+
+is_permanent_failure() {
+  local file="$1"
+  # Do not burn retries on errors that a delay will not fix.
+  if grep -qiE \
+    'authentication required|not authenticated|not logged in|invalid.*api key|api key is invalid|please check you have the right key|login required|command not found' \
+    "$file"
+  then
+    return 0
+  fi
+  return 1
+}
+
+attempt=1
+while [[ "$attempt" -le "$max_attempts" ]]; do
+  set +e
+  cursor-agent status >"$tmp" 2>&1
+  code=$?
+  set -e
+
+  if [[ "$code" -eq 0 ]]; then
+    cat "$tmp"
+    exit 0
+  fi
+
+  cat "$tmp" >&2
+
+  if is_permanent_failure "$tmp"; then
+    echo >&2
+    echo "Canary failed with a non-retryable error (exit $code). Fix auth or install, then re-run." >&2
+    exit 1
+  fi
+
+  if [[ "$attempt" -ge "$max_attempts" ]]; then
+    echo >&2
+    echo "Canary failed after $max_attempts attempt(s) (exit $code)." >&2
+    exit 1
+  fi
+
+  case "$attempt" in
+    1) wait_sec=4 ;;
+    2) wait_sec=8 ;;
+    3) wait_sec=16 ;;
+    *) wait_sec=32 ;;
+  esac
+  echo >&2 "Transient or unknown failure; retrying in ${wait_sec}s (attempt $attempt/${max_attempts})..."
+  sleep "$wait_sec"
+  attempt=$((attempt + 1))
+done
+
+exit 1
