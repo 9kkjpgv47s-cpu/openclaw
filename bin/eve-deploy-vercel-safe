@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+if [[ -n "${EVE_DEPLOY_REGISTRY_PATH:-}" ]]; then
+  REGISTRY_PATH="$EVE_DEPLOY_REGISTRY_PATH"
+elif [[ -n "${HOME:-}" ]]; then
+  REGISTRY_PATH="${HOME}/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+else
+  REGISTRY_PATH=""
+fi
 
 usage() {
   cat <<'EOF' >&2
@@ -11,6 +17,7 @@ Usage:
 Notes:
   - Must run inside an approved repo from mobile-repo-deploy-registry.json.
   - Explicit --approved-by-operator is required for every deploy action.
+  - Registry path: set EVE_DEPLOY_REGISTRY_PATH, or ensure HOME is set (see eve-deploy-gha-safe usage).
 EOF
   exit 2
 }
@@ -36,6 +43,10 @@ if [[ "$approved" != "true" ]]; then
   exit 3
 fi
 
+if [[ -z "$REGISTRY_PATH" ]]; then
+  echo "Denied: set EVE_DEPLOY_REGISTRY_PATH or HOME so the deploy registry path can be resolved." >&2
+  exit 3
+fi
 if [[ ! -f "$REGISTRY_PATH" ]]; then
   echo "Denied: registry not found at '$REGISTRY_PATH'." >&2
   exit 3

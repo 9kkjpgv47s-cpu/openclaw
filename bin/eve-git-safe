@@ -2,7 +2,14 @@
 set -euo pipefail
 
 GIT_BIN="/usr/bin/git"
-REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+
+if [[ -n "${EVE_DEPLOY_REGISTRY_PATH:-}" ]]; then
+  REGISTRY_PATH="$EVE_DEPLOY_REGISTRY_PATH"
+elif [[ -n "${HOME:-}" ]]; then
+  REGISTRY_PATH="${HOME}/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+else
+  REGISTRY_PATH=""
+fi
 
 if [[ $# -lt 1 ]]; then
   echo "Usage: eve-git-safe <git-subcommand> [args...]" >&2
@@ -43,6 +50,10 @@ if [[ -z "$repo_root" ]]; then
   exit 3
 fi
 
+if [[ -z "$REGISTRY_PATH" ]]; then
+  echo "Denied: set EVE_DEPLOY_REGISTRY_PATH or HOME so the deploy registry path can be resolved." >&2
+  exit 3
+fi
 if [[ ! -f "$REGISTRY_PATH" ]]; then
   echo "Denied: registry not found at '$REGISTRY_PATH'." >&2
   exit 3
