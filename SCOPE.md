@@ -34,6 +34,16 @@
   - `ACP_RESULT` (`spawned|failed`)
   - `ACP_ERROR` (only when failed; include the full error text)
 
+**Automation workflow brief — canary expansion**
+- **Purpose:** When work touches **CI/CD or workflow automation** (GitHub Actions, `workflow_dispatch`, schedules, deploy scripts, or registry-backed dispatch such as `bin/eve-deploy-gha-safe`), treat rollout as a **canary** first, then **expand** only after explicit gates pass — same discipline as feature flags, not big-bang delivery.
+- **Canary (narrow):** Restrict to a small surface: one workflow file or one repo slug, dry-run first where supported, a non-default ref until validated, internal-only failure notifications, or manual-only triggers. The run should still be observable (run URL, branch, outcome).
+- **Expansion (wider):** Add workflows, default-branch dispatch, schedules, or multi-repo scope only after **(1)** stable outcomes over several runs vs baseline, **(2)** acceptable cost/latency and noise, **(3)** Dominic’s green light when the change is customer-visible or high-impact.
+- **External gates:** For widening against **GitHub or other automation providers** (repos, tokens, schedules, cohorts), use the checklist and kill-switch section in `AUTOMATION_WORKFLOW_CANARY.md` in addition to the bullets above.
+- **Evidence in replies** (when this flow is active, mirror the ACP block style):
+  - `AUTOMATION_WORKFLOW_MODE` → `canary` or `expanded`
+  - `AUTOMATION_WORKFLOW_SURFACE` → short description of what is in scope (e.g. workflow name, ref, repo slug — no secrets or token values)
+  - `AUTOMATION_WORKFLOW_NOTES` → optional: flakes, overrides, rollback, or follow-ups from the last run
+
 **Daily Cadence**
 - Up to 3 substantive work updates/pushes per day.
 - I will check for progress on active work.
@@ -63,5 +73,5 @@
 
 ---
 
-*Last updated: 2026-04-21*
+*Last updated: 2026-04-28*
 *This file is living. We will revise it as the system evolves.*
