@@ -129,6 +129,14 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+#### Security status canary and retry
+
+Treat `cursor-agent status` as the **security status canary**: a cheap check that the CLI can talk to Cursor’s backend with the credentials OpenClaw will use, before heavier steps (`/acp doctor`, `sessions_spawn`).
+
+**Retry once on transient failures only.** If the command exits non‑zero or prints an obvious **transient** symptom (timeouts, connection reset, DNS failure, remote `5xx`, explicit rate limiting), wait about five seconds, run `cursor-agent status` **one more time**, and report **both** outcomes to Dominic. Do not loop beyond that single retry.
+
+**Do not use this retry for auth problems.** If output indicates missing or invalid credentials (`Authentication required`, `not authenticated`, invalid API key, or similar), **do not** retry; fix `CURSOR_API_KEY` / service env (step 3 above) and the pitfalls list below.
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
