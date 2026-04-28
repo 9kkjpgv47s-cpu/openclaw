@@ -76,6 +76,19 @@ Never use `"main"` — that's OpenClaw's internal primary-agent id, not an acpx 
 - `ACP runtime backend is not configured` or `Install and enable the acpx runtime plugin` → see the Cursor ACP runbook below. Do **not** retry; surface to Dominic.
 - `Authentication required`, `not authenticated`, `login required` → per-harness auth issue. For Cursor, see the runbook below. For other harnesses, auth is harness-specific (e.g. `gemini auth login`, `claude /login`, `opencode auth`). Do **not** retry silently; surface to Dominic with the full error text.
 
+## Security status canary (retry) — `cursor-agent status`
+
+Use `cursor-agent status` only as a **lightweight pre-flight** before Cursor ACP work when you need to confirm the CLI can reach Cursor's backend. Treat stdout/stderr as sensitive; do not paste keys or session tokens into Slack or shared logs.
+
+**Do not retry** (stop and surface the full output to Dominic, with pointers to the Cursor ACP runbook below):
+
+- Any message matching the non-retry classes in **Fallback rules** (`Authentication required`, `not authenticated`, `login required`, `ACP runtime backend is not configured`, wrong `agentId` / spawn failures that are not network-related).
+- Clear configuration errors (e.g. missing `CURSOR_API_KEY` when the CLI says so, invalid key, explicit `401`/`403` from the tool).
+
+**May retry** (transient infrastructure only): up to **2** additional attempts (**3** tries total), with **4s** then **8s** backoff between attempts, only when the failure looks like a **network or process flake** — for example: timeouts, connection reset/refused, DNS resolution failures, remote closed connection, or opaque CLI crashes with no auth/config hint.
+
+After the last failed attempt, report every attempt's outcome in one block (including whether each failure looked transient or not) and stop; do not loop further.
+
 ## Cursor ACP runbook (host-side, run on Dominic's device)
 
 These are one-time setup steps on the machine where OpenClaw/Eve runs. Eve cannot run these herself from her config repo — Dominic runs them on his device.
