@@ -75,6 +75,7 @@ Never use `"main"` — that's OpenClaw's internal primary-agent id, not an acpx 
 - `Failed to spawn agent command: <name>` where `<name>` is not in the harness map above → the caller sent the wrong `agentId`. Re-send with the correct harness name.
 - `ACP runtime backend is not configured` or `Install and enable the acpx runtime plugin` → see the Cursor ACP runbook below. Do **not** retry; surface to Dominic.
 - `Authentication required`, `not authenticated`, `login required` → per-harness auth issue. For Cursor, see the runbook below. For other harnesses, auth is harness-specific (e.g. `gemini auth login`, `claude /login`, `opencode auth`). Do **not** retry silently; surface to Dominic with the full error text.
+- **Transient spawn failure + healthy security status:** If `cursor-agent status` on the host shows authenticated (same env OpenClaw uses) but a spawn still fails with an obvious transient (timeout, connection reset, empty body, 502/503/504), retry that spawn **once** unchanged and report both outcomes. Do not treat auth or misconfigured `agentId` as transient.
 
 ## Cursor ACP runbook (host-side, run on Dominic's device)
 
@@ -128,6 +129,8 @@ Verify:
 ```bash
 cursor-agent status     # should show authenticated
 ```
+
+If status is authenticated but the first ACP spawn fails transiently, a single identical retry is allowed (see Fallback rules). If status is not authenticated, fix env first — do not retry spawns hoping they will succeed.
 
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
