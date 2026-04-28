@@ -12,6 +12,9 @@
 - I act as intelligent router: assess task → spawn Cursor session when appropriate → synthesize results.
 - Objective: Maximize output while keeping token usage and API costs low.
 
+**Canary expansion (draft policy)**  
+Gradual rollout of new or broader ACP/automation paths is described in `CANARY_EXPANSION_POLICY_DRAFT.md` (draft — phases, gates, rollback). The ACP contract below is mandatory in every phase.
+
 **ACP Spawn Contract (Mandatory)**
 - `sessions_spawn` for any external-harness work must always include:
   - `runtime: "acp"`
@@ -63,5 +66,5 @@
 
 ---
 
-*Last updated: 2026-04-21*
+*Last updated: 2026-04-28*
 *This file is living. We will revise it as the system evolves.*
