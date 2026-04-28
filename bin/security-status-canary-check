@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Security status canary: guardrails for read-only git status via eve-git-safe (no network).
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$root" ]]; then
+  echo "security-status-canary-check: must run inside a git repository." >&2
+  exit 1
+fi
+cd "$root"
+
+failures=0
+fail() {
+  echo "CANARY_FAIL: $*" >&2
+  failures=$((failures + 1))
+}
+
+git_safe="$root/bin/eve-git-safe"
+if [[ ! -f "$git_safe" ]]; then
+  fail "missing bin/eve-git-safe"
+else
+  if ! head -n 5 "$git_safe" | grep -q "set -euo pipefail"; then
+    fail "bin/eve-git-safe must use set -euo pipefail near the top"
+  fi
+  if ! grep -q "REGISTRY_PATH" "$git_safe"; then
+    fail "bin/eve-git-safe must gate on deploy registry (REGISTRY_PATH)"
+  fi
+  if ! grep -qE "(--force|--force-with-lease|-f|--hard)" "$git_safe"; then
+    fail "bin/eve-git-safe must explicitly deny destructive git flags"
+  fi
+  if ! grep -q "allowedPushBranchRegex" "$git_safe"; then
+    fail "bin/eve-git-safe must enforce allowedPushBranchRegex for push"
+  fi
+  if ! grep -q "status" "$git_safe"; then
+    fail "bin/eve-git-safe must allow or reference git status for read-only inspection"
+  fi
+  # Status path must stay in the allowlisted subcommand group (not only mentioned in comments).
+  if ! awk '/case "\$subcommand" in/,/esac/' "$git_safe" | grep -q "status"; then
+    fail "bin/eve-git-safe must list status in the allowed subcommand case arm"
+  fi
+fi
+
+if [[ -f "$git_safe" ]] && ! bash -n "$git_safe"; then
+  fail "bash -n failed for $git_safe"
+fi
+
+if [[ "$failures" -gt 0 ]]; then
+  echo "security-status-canary-check: ${failures} check(s) failed." >&2
+  exit 1
+fi
+
+echo "security-status-canary-check: all checks passed."
