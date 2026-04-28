@@ -1,0 +1,27 @@
+# Lightweight health check for GitHub Actions automation on this repo.
+name: Automation canary
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: automation-canary-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify workspace
+        run: |
+          set -euo pipefail
+          test -f AGENTS.md
+          echo "Automation workflow canary: OK"
