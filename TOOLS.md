@@ -123,11 +123,13 @@ Persist it in whichever of these OpenClaw reads on your host:
 - OpenClaw's own `~/.openclaw/env` / plugin env config, or
 - `~/.acpx/config.json` under the `cursor` agent's env block.
 
-Verify:
+Verify (auth / security-status canary):
 
 ```bash
 cursor-agent status     # should show authenticated
 ```
+
+**Canary retry (transient failures only):** If `cursor-agent status` exits non-zero or prints a **transient** error (timeouts, connection reset, DNS failure, rate limit, HTTP 5xx, empty response from the API), retry up to **3** attempts total with **exponential backoff** (for example 4s, then 8s) before concluding the CLI or network is unhealthy. **Do not** use this retry loop for stable auth failures — if the output clearly indicates missing or invalid credentials (`Authentication required`, `not authenticated`, `login required`, `401`, `403` with an auth message), stop immediately and surface to Dominic; no silent retry.
 
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
