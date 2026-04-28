@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+DEFAULT_REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
 
 usage() {
   cat <<'EOF' >&2
@@ -9,7 +9,7 @@ Usage:
   eve-deploy-vercel-safe --approved-by-operator [--dry-run] [--prod]
 
 Notes:
-  - Must run inside an approved repo from mobile-repo-deploy-registry.json.
+  - Must run inside an approved repo from mobile-repo-deploy-registry.json (or path from EVE_MOBILE_REPO_DEPLOY_REGISTRY).
   - Explicit --approved-by-operator is required for every deploy action.
 EOF
   exit 2
@@ -36,8 +36,10 @@ if [[ "$approved" != "true" ]]; then
   exit 3
 fi
 
+REGISTRY_PATH="${EVE_MOBILE_REPO_DEPLOY_REGISTRY:-$DEFAULT_REGISTRY_PATH}"
 if [[ ! -f "$REGISTRY_PATH" ]]; then
   echo "Denied: registry not found at '$REGISTRY_PATH'." >&2
+  echo "Set EVE_MOBILE_REPO_DEPLOY_REGISTRY to a readable mobile-repo-deploy-registry.json, or install the default path." >&2
   exit 3
 fi
 

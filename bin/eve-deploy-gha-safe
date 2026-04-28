@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+DEFAULT_REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
 
 usage() {
   cat <<'EOF' >&2
 Usage:
-  eve-deploy-gha-safe --approved-by-operator --workflow <file-or-id> [--ref <branch>] [--dry-run]
+  eve-deploy-gha-safe --approved-by-operator --workflow <file-or-id> [--ref <branch>] [--inputs-file <path>] [--dry-run]
 
 Notes:
-  - Must run inside an approved repo from mobile-repo-deploy-registry.json.
+  - Must run inside an approved repo from mobile-repo-deploy-registry.json (or path from EVE_MOBILE_REPO_DEPLOY_REGISTRY).
   - Explicit --approved-by-operator is required for every deploy action.
+  - Optional --inputs-file: JSON object of workflow_dispatch input names to string values (GitHub requires string values).
   - Requires EVE_GHA_TOKEN (preferred) or GH_TOKEN/GITHUB_TOKEN with workflow dispatch permissions.
 EOF
   exit 2
@@ -20,6 +21,7 @@ approved="false"
 dry_run="false"
 workflow=""
 ref=""
+inputs_file=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -27,6 +29,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run) dry_run="true"; shift ;;
     --workflow) workflow="${2:-}"; shift 2 ;;
     --ref) ref="${2:-}"; shift 2 ;;
+    --inputs-file) inputs_file="${2:-}"; shift 2 ;;
     -h|--help) usage ;;
     *)
       echo "Denied: unrecognized argument '$1'." >&2
@@ -43,8 +46,16 @@ if [[ -z "$workflow" ]]; then
   echo "Denied: --workflow is required." >&2
   exit 3
 fi
+
+REGISTRY_PATH="${EVE_MOBILE_REPO_DEPLOY_REGISTRY:-$DEFAULT_REGISTRY_PATH}"
 if [[ ! -f "$REGISTRY_PATH" ]]; then
   echo "Denied: registry not found at '$REGISTRY_PATH'." >&2
+  echo "Set EVE_MOBILE_REPO_DEPLOY_REGISTRY to a readable mobile-repo-deploy-registry.json, or install the default path." >&2
+  exit 3
+fi
+
+if [[ -n "$inputs_file" && ! -f "$inputs_file" ]]; then
+  echo "Denied: --inputs-file path is not a readable file: '$inputs_file'." >&2
   exit 3
 fi
 
@@ -113,7 +124,36 @@ if [[ -z "$token" && "$dry_run" != "true" ]]; then
 fi
 
 endpoint="https://api.github.com/repos/${repo_slug}/actions/workflows/${workflow}/dispatches"
-payload="{\"ref\":\"${ref}\"}"
+payload="$(
+  python3 - "$ref" "${inputs_file:-}" <<'PY'
+import json
+import sys
+
+ref = sys.argv[1]
+inputs_path = sys.argv[2] or ""
+
+body = {"ref": ref}
+if inputs_path:
+    with open(inputs_path, "r", encoding="utf-8") as f:
+        inputs_obj = json.load(f)
+    if not isinstance(inputs_obj, dict):
+        print("Denied: --inputs-file must contain a JSON object at top level.", file=sys.stderr)
+        sys.exit(3)
+    for k, v in inputs_obj.items():
+        if not isinstance(k, str):
+            print("Denied: workflow input keys must be strings.", file=sys.stderr)
+            sys.exit(3)
+        if not isinstance(v, str):
+            print(
+                "Denied: workflow_dispatch inputs must be strings; coerce in the file or stringify values.",
+                file=sys.stderr,
+            )
+            sys.exit(3)
+    body["inputs"] = inputs_obj
+
+print(json.dumps(body))
+PY
+)"
 
 if [[ "$dry_run" == "true" ]]; then
   echo "DRY_RUN: POST ${endpoint} payload=${payload} tokenSource=${token_source:-none}"

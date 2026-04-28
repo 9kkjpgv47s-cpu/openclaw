@@ -2,7 +2,8 @@
 set -euo pipefail
 
 GIT_BIN="/usr/bin/git"
-REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+DEFAULT_REGISTRY_PATH="/Users/dominiceasterling/Documents/OpenClaw_Eve_Sandbox/reasoning_corpus/numerical_encoding/HybridClaw_Deployment/config/mobile-repo-deploy-registry.json"
+REGISTRY_PATH="${EVE_MOBILE_REPO_DEPLOY_REGISTRY:-$DEFAULT_REGISTRY_PATH}"
 
 if [[ $# -lt 1 ]]; then
   echo "Usage: eve-git-safe <git-subcommand> [args...]" >&2
@@ -45,6 +46,7 @@ fi
 
 if [[ ! -f "$REGISTRY_PATH" ]]; then
   echo "Denied: registry not found at '$REGISTRY_PATH'." >&2
+  echo "Set EVE_MOBILE_REPO_DEPLOY_REGISTRY to a readable mobile-repo-deploy-registry.json, or install the default path." >&2
   exit 3
 fi
 
