@@ -129,6 +129,15 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+**Security status canary (retry).** Treat `cursor-agent status` as a **canary** for whether headless Cursor auth is healthy (same trust surface as ACP spawns). **Retry only** on clearly **transient** failures: empty or inconclusive output with non-zero exit, timeouts, connection errors (`connection reset`, `EOF`, `broken pipe`), DNS hiccups, or explicit rate limiting (`429`, `rate limit`, `too many requests`). Use **at most three** attempts with **exponential backoff** (for example 2s, then 4s, then 8s) and stop as soon as one attempt succeeds or a non-retryable outcome appears. **Do not retry** when the output indicates **misconfiguration or auth failure** — including `Authentication required`, `not authenticated`, `login required`, `invalid api key`, `401`, or `403` except when the message is unambiguously **rate limit** (then use the transient path above). On non-retryable failures, surface the full output to Dominic and follow the runbook above; do not mask repeated auth errors with retries.
+
+For flaky networks or transient API errors, use the bounded-retry canary (does **not** retry on auth failures):
+
+```bash
+bin/eve-cursor-status-canary
+# Optional: EVE_CURSOR_STATUS_CANARY_ATTEMPTS (default 4), EVE_CURSOR_STATUS_CANARY_SLEEP_SEC (default 2)
+```
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
