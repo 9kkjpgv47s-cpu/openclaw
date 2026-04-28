@@ -142,15 +142,20 @@ In an Eve session:
 
 Expected: a Cursor ACP session comes up; no `Authentication required`.
 
-### 5. Verify the evidence block
+### 5. Verify the evidence block (KPI anomaly canary)
 
-When Eve runs a real `sessions_spawn` with `runtime: "acp"` + `agentId: "cursor"`, she must emit:
+When Eve runs a real `sessions_spawn` with `runtime: "acp"` + `agentId: "cursor"`, she must emit the full brief block (see `SCOPE.md` — `ACP_CWD`, `ACP_TASK_SUMMARY`, `ACP_SPAWN_ATTEMPT`, plus result/error). Example success shape:
 
 ```
 ACP_RUNTIME: acp
 ACP_AGENT_ID: cursor
+ACP_CWD: /Users/dominic/projects/example-app
+ACP_TASK_SUMMARY: Fix login redirect when return_to is missing
+ACP_SPAWN_ATTEMPT: 1
 ACP_RESULT: spawned
 ```
+
+On failure, same fields through `ACP_SPAWN_ATTEMPT`, then `ACP_RESULT: failed` and `ACP_ERROR:` with the full ACP error text.
 
 If any of the error classes in the fallback rules appears, step back through this runbook.
 
