@@ -75,6 +75,7 @@ Never use `"main"` — that's OpenClaw's internal primary-agent id, not an acpx 
 - `Failed to spawn agent command: <name>` where `<name>` is not in the harness map above → the caller sent the wrong `agentId`. Re-send with the correct harness name.
 - `ACP runtime backend is not configured` or `Install and enable the acpx runtime plugin` → see the Cursor ACP runbook below. Do **not** retry; surface to Dominic.
 - `Authentication required`, `not authenticated`, `login required` → per-harness auth issue. For Cursor, see the runbook below. For other harnesses, auth is harness-specific (e.g. `gemini auth login`, `claude /login`, `opencode auth`). Do **not** retry silently; surface to Dominic with the full error text.
+- **Cursor CLI `cursor-agent status` (security check):** on transient network or timeout failures only, apply the **canary retry** in the runbook (one extra `status` after a short pause). Do not canary-retry clear auth or configuration errors.
 
 ## Cursor ACP runbook (host-side, run on Dominic's device)
 
@@ -129,6 +130,8 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+**Security status — canary retry:** If the first `cursor-agent status` fails with a **transient** symptom (timeout, connection reset, DNS failure, empty output, or a generic network error), wait **5–15 seconds** and run **`cursor-agent status` exactly once more** before concluding the CLI is broken or unauthenticated. Do **not** use this retry for stable errors such as `Authentication required`, `not authenticated`, `401`/`403`, or `ACP runtime backend is not configured` — those need env/plugin fixes, not a second status poll.
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
@@ -158,5 +161,6 @@ If any of the error classes in the fallback rules appears, step back through thi
 
 - **`Failed to spawn agent command: main`** — `agentId: "main"` was sent. Use the harness map above (`"cursor"`, `"codex"`, etc.). This was the original root cause of Eve's failure.
 - **`Authentication required`** — `CURSOR_API_KEY` isn't set in the environment OpenClaw spawns acpx from. Having it in your interactive shell is not enough — OpenClaw's service env must see it.
+- **First `cursor-agent status` failed with timeout / network** — use the **security status canary retry** (one rerun after 5–15s). If the second run still fails, treat it as an environment or connectivity issue, not a flaky single poll.
 - **`ACP runtime backend is not configured`** — acpx plugin isn't installed or isn't enabled. Run step 1.
 - **Using Grok API key for Cursor auth** — won't work. Grok drives Eve's reasoning; Cursor needs its own key. Keep them separate in your env.
