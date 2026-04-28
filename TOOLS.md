@@ -69,6 +69,12 @@ Pick `agentId` by task type:
 
 Never use `"main"` — that's OpenClaw's internal primary-agent id, not an acpx harness, and acpx will fail with `Failed to spawn agent command: main`.
 
+### Security status canary (before heavier ACP checks)
+
+Use **`cursor-agent status`** on the host as a **cheap canary** for Cursor CLI security posture (API reachable, session authenticated) before running `/acp spawn` or full `sessions_spawn` smoke tests. If status shows unauthenticated, fix `CURSOR_API_KEY` per the runbook below — do **not** retry status in a loop hoping it self-heals.
+
+For a **minimal `sessions_spawn` canary** (tiny task, valid `cwd` only): if ACP returns **`target_agent_required`**, **retry once** with the same arguments except `agentId` set to the correct harness for the task (for Cursor work, `"cursor"`), then report both attempts (`ACP_RESULT` / `ACP_ERROR` for each). Do **not** use that retry path for `Authentication required`, `not authenticated`, `login required`, or missing-runtime errors — those stay fail-closed per the rules below.
+
 ### Fallback rules
 
 - `target_agent_required` → retry once with the correct harness name for the task type. Report the retry result.
