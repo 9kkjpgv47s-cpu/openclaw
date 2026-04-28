@@ -72,6 +72,7 @@ Never use `"main"` — that's OpenClaw's internal primary-agent id, not an acpx 
 ### Fallback rules
 
 - `target_agent_required` → retry once with the correct harness name for the task type. Report the retry result.
+- Error text suggesting **security status**, **canary**, **503**, **temporarily unavailable**, or similar **transient** backend checks → retry **up to 3 times** with short backoff before surfacing to Dominic. Do **not** lump these together with `Authentication required` / `not authenticated` / `login required` (those stay no-retry per below).
 - `Failed to spawn agent command: <name>` where `<name>` is not in the harness map above → the caller sent the wrong `agentId`. Re-send with the correct harness name.
 - `ACP runtime backend is not configured` or `Install and enable the acpx runtime plugin` → see the Cursor ACP runbook below. Do **not** retry; surface to Dominic.
 - `Authentication required`, `not authenticated`, `login required` → per-harness auth issue. For Cursor, see the runbook below. For other harnesses, auth is harness-specific (e.g. `gemini auth login`, `claude /login`, `opencode auth`). Do **not** retry silently; surface to Dominic with the full error text.
@@ -128,6 +129,8 @@ Verify:
 ```bash
 cursor-agent status     # should show authenticated
 ```
+
+**Transient “security status / canary” failures:** `cursor-agent status` sometimes fails while Cursor’s backend runs **security status** or **canary** checks (rollouts, load shedding, brief outages). That is **not** the same as a missing or invalid `CURSOR_API_KEY`. Retry **up to 3 times** with **2–5s backoff** (exponential is fine). If it still fails after those retries, capture the **full** stderr and treat it like any other unresolved status check — do not assume auth is fixed until `status` succeeds.
 
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
