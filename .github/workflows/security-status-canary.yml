@@ -1,0 +1,38 @@
+name: Security status canary
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "cursor/**"
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run security status canary (with retry)
+        run: |
+          set -euo pipefail
+          max_attempts=3
+          delay_seconds=2
+          attempt=1
+          while [[ "$attempt" -le "$max_attempts" ]]; do
+            if bash bin/security-status-canary-check; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq "$max_attempts" ]]; then
+              echo "security-status-canary: exhausted ${max_attempts} attempts." >&2
+              exit 1
+            fi
+            echo "security-status-canary: attempt ${attempt} failed; retrying in ${delay_seconds}s..."
+            sleep "$delay_seconds"
+            attempt=$((attempt + 1))
+          done
