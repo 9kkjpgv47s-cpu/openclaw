@@ -1,0 +1,57 @@
+# Canary for Eve automation helpers: keeps bin/eve-*-safe scripts valid in Linux/CI
+# (registry path override) and catches bash syntax regressions.
+name: Eve automation canary
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  automation-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bash syntax check
+        run: |
+          set -euo pipefail
+          for f in bin/eve-*; do
+            [[ -f "$f" ]] || continue
+            bash -n "$f"
+          done
+
+      - name: Write canary registry and dry-run GHA dispatch
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+
+          root = os.path.realpath(os.environ["GITHUB_WORKSPACE"])
+          path = os.path.join(root, ".github", "workflows", ".canary-registry.json")
+          os.makedirs(os.path.dirname(path), exist_ok=True)
+          data = {
+              "repos": [
+                  {
+                      "localPath": root,
+                      "deploySurfaces": ["github-actions", "vercel"],
+                      "githubActions": {"repository": "octocat/Hello-World"},
+                      "remoteUrl": "",
+                      "allowedPushBranchRegex": ".*",
+                  }
+              ]
+          }
+          with open(path, "w", encoding="utf-8") as f:
+              json.dump(data, f)
+          print("Wrote", path)
+          PY
+          export EVE_MOBILE_REPO_DEPLOY_REGISTRY="${GITHUB_WORKSPACE}/.github/workflows/.canary-registry.json"
+          printf '%s\n' '{"canary":"true"}' > "${GITHUB_WORKSPACE}/.github/workflows/.canary-inputs.json"
+          out="$(bin/eve-deploy-gha-safe --approved-by-operator --workflow eve-automation-canary.yml --dry-run --inputs-file "${GITHUB_WORKSPACE}/.github/workflows/.canary-inputs.json")"
+          echo "$out"
+          echo "$out" | grep -q 'canary'
+          echo "$out" | grep -q '"inputs"'
+          bin/eve-deploy-vercel-safe --approved-by-operator --dry-run | grep -q DRY_RUN
