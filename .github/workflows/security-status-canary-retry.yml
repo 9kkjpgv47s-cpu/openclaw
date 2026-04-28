@@ -1,0 +1,58 @@
+# Canary: Step Security harden-runner (egress audit) + retried reads of GitHub API / status page.
+name: Security status canary (retry)
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: security-status-canary-retry-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  security-status-canary:
+    name: Status endpoints (harden-runner + retry)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          # Audit logs egress; switch to `block` + allowed-endpoints once baselined.
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: GitHub API meta (retry on transient failures)
+        uses: step-security/retry@v3
+        with:
+          timeout_seconds: 45
+          max_attempts: 5
+          retry_wait_seconds: 8
+          retry_on: error
+          command: |
+            set -euo pipefail
+            curl -fsS --connect-timeout 15 --max-time 30 \
+              -H "Accept: application/vnd.github+json" \
+              https://api.github.com/meta > /tmp/github-meta.json
+            test -s /tmp/github-meta.json
+
+      - name: GitHub Status page API (retry)
+        uses: step-security/retry@v3
+        with:
+          timeout_seconds: 45
+          max_attempts: 5
+          retry_wait_seconds: 8
+          retry_on: error
+          command: |
+            set -euo pipefail
+            curl -fsS --connect-timeout 15 --max-time 30 \
+              https://www.githubstatus.com/api/v2/status.json > /tmp/gh-status.json
+            grep -q '"status"' /tmp/gh-status.json
