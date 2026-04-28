@@ -1,0 +1,40 @@
+# Lightweight canary: confirm GitHub API access for this repo succeeds.
+# Wraps the probe in step-security/retry so transient network or API flakes
+# do not fail the workflow on the first error.
+name: Security status canary
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, off-peak UTC (does not align with top-of-hour cron storms)
+    - cron: "37 6 * * 3"
+
+permissions:
+  contents: read
+
+jobs:
+  security-status-with-retry:
+    name: Repo security metadata (retry on transient failure)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch repository record via GitHub API
+        uses: step-security/retry@v3
+        with:
+          timeout_seconds: 90
+          max_attempts: 3
+          retry_wait_seconds: 15
+          retry_on: error
+          command: |
+            set -euo pipefail
+            gh api "repos/${{ github.repository }}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              --jq '{
+                default_branch,
+                archived,
+                visibility,
+                disabled,
+                has_issues,
+                has_discussions,
+                security_and_analysis
+              }'
