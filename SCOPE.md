@@ -34,6 +34,20 @@
   - `ACP_RESULT` (`spawned|failed`)
   - `ACP_ERROR` (only when failed; include the full error text)
 
+**KPI anomaly brief (when signals fire)**
+- Use this compact block whenever routing or execution looks off-track, not only after ACP errors. Triggers include: the same error class twice in one turn after documented fallback; stalled handoff (spawned but no usable result); Dominic says work is stuck or asks for a health read; or any explicit request for a KPI-style status.
+- Reply with a short, copy-pasteable block (all lines, even if one value is `n/a`):
+  - `KPI_WINDOW` — scope assessed (e.g. “this request”, “today’s ACP attempts”, named project path).
+  - `KPI_SIGNAL` — what tripped the brief (e.g. `acp_auth`, `harness_mismatch`, `stall`, `explicit_check`).
+  - `KPI_STATE` — `ok` | `degraded` | `blocked`.
+  - `KPI_EVIDENCE` — up to three one-line facts: last action, outcome, next concrete step (must point at a doc section like TOOLS runbook or a single retry rule, not vague “try again”).
+- If `KPI_STATE` is `blocked`, stop autonomous expansion (see canary rules below) until Dominic confirms or the blocker is cleared per TOOLS.md.
+
+**Canary expansion**
+- Treat new or changed operational behavior (extra spawn paths, new harnesses, stricter gates, automated follow-ups) as a **canary**: one narrow slice first — e.g. one `cwd`, one harness, or checklist-only in the reply without widening blast radius.
+- **Widen** only after: a clean success on that slice, or explicit Dominic green light, and no contradiction with the ACP evidence block or KPI brief above.
+- **Rollback**: if the canary adds noise, failures, or confusion, revert to the last documented pattern in SCOPE/TOOLS, state that rollback in the next reply, and do not broaden until the failure mode is understood.
+
 **Daily Cadence**
 - Up to 3 substantive work updates/pushes per day.
 - I will check for progress on active work.
@@ -63,5 +77,5 @@
 
 ---
 
-*Last updated: 2026-04-21*
+*Last updated: 2026-04-28*
 *This file is living. We will revise it as the system evolves.*
