@@ -129,6 +129,13 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+For flaky networks or transient API errors, use the bounded-retry canary (does **not** retry on auth failures):
+
+```bash
+bin/eve-cursor-status-canary
+# Optional: EVE_CURSOR_STATUS_CANARY_ATTEMPTS (default 4), EVE_CURSOR_STATUS_CANARY_SLEEP_SEC (default 2)
+```
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw

@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Bounded-retry canary for Cursor CLI auth/security status.
+# Use when automation hits transient curl/API failures; do not mask real auth errors.
+set -euo pipefail
+
+MAX_ATTEMPTS="${EVE_CURSOR_STATUS_CANARY_ATTEMPTS:-4}"
+SLEEP_BASE="${EVE_CURSOR_STATUS_CANARY_SLEEP_SEC:-2}"
+
+if ! command -v cursor-agent >/dev/null 2>&1; then
+  echo "eve-cursor-status-canary: cursor-agent not on PATH" >&2
+  exit 127
+fi
+
+attempt=1
+last_out=""
+last_code=0
+
+while [[ "$attempt" -le "$MAX_ATTEMPTS" ]]; do
+  set +e
+  last_out="$(cursor-agent status 2>&1)"
+  last_code=$?
+  set -e
+
+  if [[ "$last_code" -eq 0 ]]; then
+    printf '%s\n' "$last_out"
+    echo "eve-cursor-status-canary: ok (attempt ${attempt}/${MAX_ATTEMPTS})"
+    exit 0
+  fi
+
+  # Definitive auth/config failures: fail fast, no retry
+  if printf '%s' "$last_out" | grep -qiE 'not authenticated|authentication required|login required|invalid.*key|unauthorized'; then
+    printf '%s\n' "$last_out" >&2
+    echo "eve-cursor-status-canary: auth failure (no retry) exit=${last_code}" >&2
+    exit "$last_code"
+  fi
+
+  if [[ "$attempt" -eq "$MAX_ATTEMPTS" ]]; then
+    break
+  fi
+
+  delay=$((SLEEP_BASE * (1 << (attempt - 1))))
+  echo "eve-cursor-status-canary: attempt ${attempt} failed (exit ${last_code}), retry in ${delay}s..." >&2
+  printf '%s\n' "$last_out" >&2
+  sleep "$delay"
+  attempt=$((attempt + 1))
+done
+
+printf '%s\n' "$last_out" >&2
+echo "eve-cursor-status-canary: exhausted ${MAX_ATTEMPTS} attempts exit=${last_code}" >&2
+exit "$last_code"
