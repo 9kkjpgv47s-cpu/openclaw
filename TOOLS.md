@@ -129,6 +129,14 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+### Security status / canary probes (`cursor-agent status`)
+
+When `cursor-agent status` is used as a **health or security canary** (CI, heartbeat, or operator smoke test), treat failures by **cause**, not by blanket retry:
+
+- **Retry at most once** after a short pause (about 2–5 seconds) only when the output clearly indicates a **transient** problem: timeouts, connection reset, TLS handshake errors, HTTP-style **5xx** or “temporarily unavailable” from the Cursor backend, or **connection refused** when the CLI is expected to talk to a local daemon that may still be starting.
+- **Do not retry** on **auth or configuration** failures: `Authentication required`, `not authenticated`, `login required`, invalid or missing API key messages, or misconfiguration. Those require human follow-up per this runbook; retrying only burns time and noise.
+- After a retry, report both attempts (first error and outcome of the second run).
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
