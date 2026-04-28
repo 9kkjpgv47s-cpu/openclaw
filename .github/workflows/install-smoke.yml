@@ -1,0 +1,35 @@
+# Canary automation: dispatch from operators / eve-deploy-gha-safe; expands to
+# path-filtered push and PR so routine doc-only edits do not burn minutes.
+name: Install smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "bin/**"
+      - ".github/workflows/**"
+  pull_request:
+    paths:
+      - "bin/**"
+      - ".github/workflows/**"
+
+concurrency:
+  group: install-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shell-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify deploy helper scripts
+        run: |
+          set -euo pipefail
+          for f in bin/eve-git-safe bin/eve-deploy-gha-safe bin/eve-deploy-vercel-safe; do
+            test -f "$f"
+            test -x "$f"
+            bash -n "$f"
+          done
+          echo "OK: all bin helpers are present and parse clean."
