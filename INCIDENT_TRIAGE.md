@@ -27,6 +27,16 @@ A **canary** ships a change to a small slice of traffic or hosts first, then **e
 - Know **rollback** path: revert deploy, flip flag off, or drain bad instances—one clear default.
 - Ensure **observability** can slice by canary cohort (flag variant, cluster, version label).
 
+**Pre-flight checklist (do not skip):**
+
+- **Change ID** — One deploy SHA, flag name + default/off state, or config key; no mixed bundles in the same canary unless unavoidable.
+- **Baseline window** — Agree pre-change reference (same day-of-week and time window if traffic is seasonal).
+- **Owner + comms** — Named approver for “advance” and “abort”; status channel or ticket updated with current stage and slice.
+- **Kill switch tested** — Rollback or flag-off exercised in non-prod or documented as low-risk one-click; know who can execute it after hours.
+- **Cohort visibility** — Dashboards or queries filtered by canary label work *before* traffic moves; spot-check a canary-only request if your stack allows.
+
+**Deploy vs feature-flag canaries:** A **deploy** canary routes a fraction of instances or cells to a new binary; a **flag** canary gates behavior for a user or request cohort. You can combine them (new binary behind a flag)—treat each as a separate expansion with its own gates if both move independently.
+
 ### Recommended stages (example)
 
 Tune percentages and dwell time to your risk and traffic shape. Low traffic may need longer windows or larger minimum cohorts for statistical confidence.
@@ -39,6 +49,17 @@ Tune percentages and dwell time to your risk and traffic shape. Low traffic may 
 | 4 | 100% | — | Final review; on-call ack |
 
 If any stage fails, **stop expansion**, roll back or hold at previous stage, and triage as a new incident if user-visible.
+
+**Per-stage advance checklist (before widening):**
+
+- Dwell time at least met; no open sev-1/2 tied to this change without explicit exception.
+- Canary slice shows **no** sustained regression vs baseline on agreed metrics (not a single noisy minute).
+- Error logs: no **new** stack traces or dependency errors concentrated on canary cohort.
+- Infra: CPU/memory/connection pools within budget; no retry storms or queue backlog growth on canary only.
+- Product/support: no correlated spike in tickets, chat volume, or funnel drop for canary users (when measurable).
+- Document “advance to stage N” with timestamp and approver in the incident or rollout thread.
+
+**Low traffic:** If volume is too low for tight error bands, prefer longer dwell, larger minimum cohort (absolute request count), or shadow/dark traffic before user-visible canary.
 
 ### Gates (all should pass before widening)
 
@@ -53,6 +74,10 @@ Expand **only** when stable; shrink or revert on any of:
 - SLO burn or alert policy firing on canary-specific series.
 - New exception class or dependency failure correlated with canary.
 - Manual "stop" from on-call or incident commander.
+- **Ambiguous signal** — If you cannot explain a regression or improvement on the canary slice, **hold** until you can; do not widen on uncertainty.
+- **Data integrity** — Any hint of wrong writes, duplicate side effects, or authz leakage: revert immediately, then triage.
+
+**After rollback:** Confirm blast radius (how long bad traffic ran), whether data repair is needed, and whether to re-canary with a fix or different gates.
 
 ### After full rollout
 
