@@ -129,6 +129,8 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+**Security / auth canary — one retry:** Treat `cursor-agent status` as a lightweight canary for whether this shell (and by analogy the service that spawns acpx) can reach Cursor with `CURSOR_API_KEY`. The CLI or network can occasionally return a transient error or a misleading not-authenticated line right after restarts or key rotation. If the first run is non-zero exit, empty output, or clearly wrong: wait a couple of seconds, run `cursor-agent status` **exactly once more**, and use the second outcome when deciding whether the key and PATH are good. Do not loop retries or use this to second-guess definitive ACP errors from `sessions_spawn` — those follow the fallback rules above (no silent retry on auth/backend misconfiguration).
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
