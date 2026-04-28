@@ -129,6 +129,14 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+**Security status canary (with one retry):** `cursor-agent status` can occasionally fail on transient errors. From this repo you can run:
+
+```bash
+./bin/eve-cursor-security-status-canary
+```
+
+It runs `cursor-agent status`, and on failure waits three seconds and retries once before exiting. If `cursor-agent` is not installed, the script exits 0 and prints a skip message (useful in environments where the CLI is optional).
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
