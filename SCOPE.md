@@ -15,14 +15,7 @@
 **ACP Spawn Contract (Mandatory)**
 - `sessions_spawn` for any external-harness work must always include:
   - `runtime: "acp"`
-  - `agentId`: the **acpx harness name**, chosen by task type (not an OpenClaw agent id):
-    - Cursor work → `"cursor"`
-    - Codex work → `"codex"`
-    - Claude Code work → `"claude"`
-    - Gemini CLI work → `"gemini"`
-    - OpenCode work → `"opencode"`
-    - Copilot work → `"copilot"`
-    - OpenClaw-on-OpenClaw work → `"openclaw"`
+  - `agentId`: the **acpx harness name**, chosen by task type (not an OpenClaw agent id). Common picks: `"cursor"`, `"codex"`, `"claude"`, `"gemini"`, `"opencode"`, `"copilot"`, `"openclaw"`. Additional built-ins supported by acpx (each needs CLI + auth on the host, and must appear in OpenClaw `acp.allowedAgents` when policy is enforced): `"pi"`, `"droid"` (aliases `factory-droid`, `factorydroid`), `"iflow"`, `"kilocode"`, `"kimi"`, `"kiro"`, `"qoder"`, `"qwen"`, `"trae"`. Full table and **canary rollout** for expanding `allowedAgents` → `TOOLS.md` (ACP Spawn Template).
   - `cwd` pointing to the target project's absolute path
   - `task` with a clear, self-contained implementation instruction
 - Never send `agentId: "main"`. `main` is OpenClaw's internal primary-agent id and acpx does not recognise it as a harness — it produces `Failed to spawn agent command: main`.

@@ -57,17 +57,41 @@ Use this exact shape for ACP spawns. The `agentId` is the **acpx harness name** 
 
 ### Harness map (acpx built-ins)
 
-Pick `agentId` by task type:
+Pick `agentId` by task type. Names below match [acpx built-in agents](https://github.com/openclaw/acpx/blob/main/agents/README.md); each needs the corresponding CLI installed and authenticated on the host.
 
-- Cursor work → `"cursor"` (spawns `cursor-agent acp`)
-- Codex work → `"codex"` (spawns `npx @zed-industries/codex-acp`)
-- Claude Code work → `"claude"` (spawns `npx -y @zed-industries/claude-agent-acp`)
-- Gemini CLI work → `"gemini"` (spawns `gemini --acp`)
-- OpenCode work → `"opencode"` (spawns `npx -y opencode-ai acp`)
-- Copilot work → `"copilot"` (spawns `copilot --acp --stdio`)
-- OpenClaw-on-OpenClaw → `"openclaw"` (spawns `openclaw acp`)
+| `agentId` | Typical use | Command shape (acpx) |
+| --- | --- | --- |
+| `cursor` | Cursor Cloud Agent / CLI | `cursor-agent acp` |
+| `codex` | Codex | `npx @zed-industries/codex-acp` |
+| `claude` | Claude Code | `npx -y @zed-industries/claude-agent-acp` |
+| `gemini` | Gemini CLI | `gemini --acp` |
+| `opencode` | OpenCode | `npx -y opencode-ai acp` |
+| `copilot` | GitHub Copilot CLI | `copilot --acp --stdio` |
+| `openclaw` | OpenClaw gateway bridge | `openclaw acp` |
+| `pi` | Pi agent (ACP adapter) | `npx pi-acp` |
+| `droid` | Factory Droid | `droid exec --output-format acp` — aliases `factory-droid`, `factorydroid` resolve here too |
+| `iflow` | iFlow | `iflow --experimental-acp` |
+| `kilocode` | Kilocode | `npx -y @kilocode/cli acp` |
+| `kimi` | Kimi | `kimi acp` |
+| `kiro` | Kiro | `kiro-cli-chat acp` |
+| `qoder` | Qoder | `qodercli --acp` |
+| `qwen` | Qwen CLI | `qwen --acp` |
+| `trae` | Trae | `traecli acp serve` |
 
 Never use `"main"` — that's OpenClaw's internal primary-agent id, not an acpx harness, and acpx will fail with `Failed to spawn agent command: main`.
+
+### Canary expansion (OpenClaw `acp.allowedAgents`)
+
+OpenClaw rejects spawns when the harness is not in policy: errors like `ACP agent "…" is not allowed by policy` mean the id must be added to `acp.allowedAgents` (see [OpenClaw ACP agents](https://docs.openclaw.ai/tools/acp-agents)).
+
+**Suggested rollout**
+
+1. **Baseline** — Keep `acp.enabled` / `acp.dispatch.enabled` on; set `acp.allowedAgents` to harnesses you already trust on the host (often `cursor`, `codex`, `claude` first).
+2. **Smoke one harness** — Install CLI + auth for the new tool, then `/acp doctor` and `/acp spawn <harness> --cwd <path>` from an Eve session before adding it to `allowedAgents`.
+3. **Expand allowlist** — Append the new `agentId` to `acp.allowedAgents`, restart or reload config as your OpenClaw build requires, and retry `sessions_spawn` with the same id.
+4. **Evidence** — Keep emitting the ACP evidence block (`ACP_RUNTIME`, `ACP_AGENT_ID`, `ACP_RESULT`, `ACP_ERROR`) so failures are obvious without guessing policy vs auth vs missing binary.
+
+Add harnesses gradually; each new CLI is another install surface and credential to maintain.
 
 ### Fallback rules
 
