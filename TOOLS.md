@@ -129,6 +129,16 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+#### Security status canary (with retry)
+
+Use `cursor-agent status` as a lightweight **security status canary** before depending on Cursor ACP or Cloud Agents from automation (Eve, scripts, or orchestrators).
+
+- **Pass:** Output indicates the CLI is installed and authenticated (per Cursor's current status text).
+- **Retry (transient only):** If the command fails or times out with clearly **transient** conditions (network timeout, connection reset, DNS blip, or upstream HTTP-style errors such as 502/503/429 when surfaced in stderr), rerun the same check up to **3 times** with exponential backoff: **4s, then 8s, then 16s** between attempts. Report each attempt and the final outcome to the operator.
+- **Do not retry:** Same classes as the ACP fallback rules above — `Authentication required`, `not authenticated`, `login required`, `ACP runtime backend is not configured`, missing CLI (`command not found`), or other **configuration/auth** errors. Stop after the first failure and follow the Cursor ACP runbook; fix the root cause instead of retrying.
+
+This canary is a preflight signal only; it does not replace explicit operator approval for deploys or other high-impact actions.
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
