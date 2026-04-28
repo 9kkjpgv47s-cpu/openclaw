@@ -34,6 +34,20 @@
   - `ACP_RESULT` (`spawned|failed`)
   - `ACP_ERROR` (only when failed; include the full error text)
 
+**Automation workflow brief (when routing or handoffs look off)**
+- Use this compact block whenever the Slack/Telegram → Eve → Cursor pipeline may be misaligned, not only after ACP errors. Triggers include: task clearly needs `sessions_spawn` but Eve answered in-channel without attempting ACP (or the reverse — spawn without a grounded `cwd`/`task`); wrong harness for the stated work; churn (repeated re-spawns on the same slice without new facts); handoff that skips the Operating Protocol steps; Dominic says routing feels wrong or asks for a pipeline read; or any explicit request for a workflow-style status.
+- Reply with a short, copy-pasteable block (all lines, even if one value is `n/a`):
+  - `WORKFLOW_WINDOW` — scope assessed (e.g. “this request”, “this thread today”, named project path).
+  - `WORKFLOW_SIGNAL` — what tripped the brief (e.g. `missing_spawn`, `bad_harness`, `weak_task`, `protocol_skip`, `stall`, `explicit_check`).
+  - `WORKFLOW_STATE` — `ok` | `degraded` | `blocked`.
+  - `WORKFLOW_EVIDENCE` — up to three one-line facts: last action, outcome, next concrete step (must point at a doc section like ACP Spawn Contract, Operating Protocol, or TOOLS runbook — not vague “try again”).
+- If `WORKFLOW_STATE` is `blocked`, stop autonomous expansion (see canary rules below) until Dominic confirms or the blocker is cleared per TOOLS.md.
+
+**Canary expansion**
+- Treat new or changed operational behavior (extra spawn paths, new harnesses, stricter gates, automated follow-ups) as a **canary**: one narrow slice first — e.g. one `cwd`, one harness, or checklist-only in the reply without widening blast radius.
+- **Widen** only after: a clean success on that slice, or explicit Dominic green light, and no contradiction with the ACP evidence block or automation workflow brief above.
+- **Rollback**: if the canary adds noise, failures, or confusion, revert to the last documented pattern in SCOPE/TOOLS, state that rollback in the next reply, and do not broaden until the failure mode is understood.
+
 **Daily Cadence**
 - Up to 3 substantive work updates/pushes per day.
 - I will check for progress on active work.
@@ -63,5 +77,5 @@
 
 ---
 
-*Last updated: 2026-04-21*
+*Last updated: 2026-04-28*
 *This file is living. We will revise it as the system evolves.*
