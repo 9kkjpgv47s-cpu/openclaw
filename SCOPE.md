@@ -34,6 +34,15 @@
   - `ACP_RESULT` (`spawned|failed`)
   - `ACP_ERROR` (only when failed; include the full error text)
 
+**KPI anomaly brief — canary expansion**
+- **Purpose:** When work involves automated or templated **KPI anomaly briefs** (summaries that flag unusual metric movements), treat rollout as a **canary** first, then **expand** only after explicit gates pass — same discipline as feature flags, not big-bang delivery.
+- **Canary (narrow):** Restrict scope to a deliberately small surface: e.g. one Slack channel or DM, one dashboard or account cohort, internal recipients only, or a product flag that keeps customer-facing surfaces off. The brief should still be complete for that cohort (clear KPI, window, baseline vs current, and what changed).
+- **Expansion (wider):** Widen recipients, channels, or data scope only after **(1)** stable quality over several cycles (anomaly callouts match human judgment or documented tolerances), **(2)** acceptable cost/latency, **(3)** Dominic’s green light for the next tier if the change is customer-visible or high-impact.
+- **Evidence in replies** (when this flow is active, mirror the ACP block style):
+  - `KPI_BRIEF_MODE` → `canary` or `expanded`
+  - `KPI_BRIEF_COHORT` → short description of who/what is in scope (no sensitive payloads)
+  - `KPI_BRIEF_NOTES` → optional: incidents, overrides, or follow-ups from the last run
+
 **Daily Cadence**
 - Up to 3 substantive work updates/pushes per day.
 - I will check for progress on active work.
@@ -63,5 +72,5 @@
 
 ---
 
-*Last updated: 2026-04-21*
+*Last updated: 2026-04-28*
 *This file is living. We will revise it as the system evolves.*
