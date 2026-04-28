@@ -55,6 +55,9 @@
 - Dominic can hand off complex work and receive deep, veteran-quality output with minimal oversight.
 - Token-efficient agent orchestration via Cursor/Slack becomes the default operating model.
 
+**Canary expansion (draft policy)**
+- New capabilities and wider autonomy should follow a deliberate canary path (design → narrow trial → expand one dimension at a time → fold into this scope when approved). See `docs/CANARY_EXPANSION_POLICY_DRAFT.md` for the draft gates and phases. That file is **draft** until explicitly promoted; green light and this document still govern day-to-day behavior.
+
 **Operating Protocol (Request Handling Framework)**
 - Treat current SCOPE.md as a living baseline, not final/all-inclusive.
 - Do not “attack” areas. Instead, systematically build understanding of current limitations, identify tools/skills needed moving forward, warm them up, verify functionality, define proper approach + end goal, then deliver findings and request explicit permission.
@@ -63,5 +66,5 @@
 
 ---
 
-*Last updated: 2026-04-21*
+*Last updated: 2026-04-28*
 *This file is living. We will revise it as the system evolves.*
