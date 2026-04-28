@@ -131,6 +131,14 @@ cursor-agent status     # should show authenticated
 
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
+### Security status canary (retry)
+
+Treat `cursor-agent status` as a **security/auth canary** before important or batched ACP spawns: it confirms the same environment OpenClaw uses can reach Cursor’s backend with a valid key.
+
+**When to retry:** If the command fails with signs of **transience only** (timeouts, connection resets, rate limits, HTTP 5xx), retry up to **three** times with **4s, 8s, 16s** backoff between attempts, then report the last full error.
+
+**When not to retry:** `Authentication required`, `not authenticated`, `login required`, `ACP runtime backend is not configured`, or `Failed to spawn agent command: main` — stop immediately; fix configuration (see fallback rules above and common pitfalls). Do not burn retries on misconfiguration.
+
 ### 4. Smoke test from OpenClaw
 
 In an Eve session:
