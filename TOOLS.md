@@ -129,6 +129,17 @@ Verify:
 cursor-agent status     # should show authenticated
 ```
 
+**Security status canary (with retry)** — Treat `cursor-agent status` as a lightweight canary for whether the Cursor CLI sees valid credentials and can reach Cursor’s API in this environment (before heavier `/acp spawn` or full `sessions_spawn` checks).
+
+- **Transient failures** (timeouts, TLS or connection resets, temporary `ECONNREFUSED`, HTTP `429` / rate-limit wording in output): retry with bounded backoff — use the script below (default up to 5 attempts, **4s, 8s, 16s, 32s** between tries, matching other Eve deploy retry guidance). Report the first error and the final outcome if a retry succeeds or all attempts fail.
+- **Do not retry** for deterministic outcomes: missing `cursor-agent`, `Authentication required`, `not authenticated`, `login required`, invalid or empty `CURSOR_API_KEY`, or other explicit auth/config errors — fix the runbook steps above and re-run the canary manually.
+
+```bash
+/workspace/bin/eve-cursor-security-status-canary
+# or from repo root:
+./bin/eve-cursor-security-status-canary --max-attempts 5
+```
+
 Alternative (browser-based, not useful for Eve since she's headless): `agent login`.
 
 ### 4. Smoke test from OpenClaw
